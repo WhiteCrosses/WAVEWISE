@@ -14,6 +14,9 @@ from matplotlib.ticker import FuncFormatter
 import matplotlib.pyplot as plt
 import pandas as pd
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMainWindow, QAction, qApp, QApplication
+
+from PyQt5.QtGui import QIcon
 import csv
 
 import pyqtgraph as pg
@@ -37,9 +40,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.histMin = -100
         self.histMax = 0
         
+        self.constantPart = 0
+        self.sampleRate = int(10e6)
+        self.center_freq = int(100e6)
+        self.bufferSize = 1024
+        self.startFreq = self.center_freq-(self.sampleRate/2)
+        
         self.frameTime = 100
         
         self.isRecording = False
+        self.isFirstIteration = False
+        self.isPlutoRunning = False
+        self.isFile = False
         
         self.filterFrame = 5
         self.filterFrameLength = 20
@@ -55,7 +67,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #self.setStyleSheet("background-color: #0b213b;")
         
-        self.plutoInit()
+       
         self.peakFinderInit()
         self.mainWidgetsInit()
         
@@ -63,6 +75,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.createWidgets()
         self.firstIteration()
+        
         
     def firstIteration(self):
         self.x = np.arange(self.startFreq,self.bufferSize+self.startFreq)
@@ -77,6 +90,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._leftBox = QtWidgets.QWidget()
         self._middleBox = QtWidgets.QWidget()
 
+    def selectFle(self):
+        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', 
+         'c:\\',"Image files (*.csv *.txt)")
+
+
     def peakFinderInit(self):
         self.pSetHeight = -50
         self.pSetThereshold = None
@@ -88,12 +106,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetPlateauSize = None
 
     def plutoInit(self):
-        self.constantPart = 0
-        self.sampleRate = int(10e6)
-        self.center_freq = int(100e6)
-        self.bufferSize = 1024
-        self.startFreq = self.center_freq-(self.sampleRate/2)
-        
         self.sdr = adi.Pluto("ip:192.168.2.1")
         self.sdr.sample_rate = self.sampleRate
         self.sdr.rx_rf_bandwidth = self.sampleRate # filter cutoff, just set it to the same as sample rate
@@ -102,38 +114,44 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.sdr.rx_rf_bandwidth=int(self.sampleRate)
         
     def _update_canvas(self):
-        self.getData()
-        self._wave_ax.clear()
-        self._wave_ax.set_ylim(-100,0)
-    
-        self._wave_ax.set_ylabel("dBm", color='white')
-    
-        def millions(x, pos):
-            if x<1e6:
-                return '%1.1fkHz' % (x*1e-3)
-            elif x>=1e6 and x<1e9:
-                return '%1.1fMHz' % (x*1e-6)
-            elif x>=1e9:
-                return '%1.1fGHz' % (x*1e-9)
-            
-
-        formatter = FuncFormatter(millions)
-        self._wave_ax.xaxis.set_major_formatter(formatter)
-    
-        self._wave_ax.plot(self.freq,self.data)
         
-        self.renderPeaks()
-            
-        self._line.set_array(np.reshape(self.imageArray,(100,self.bufferSize)))
-        self._line.set(clim=(self.colorMeshMin,self.colorMeshMax))
+        if self.isFirstIteration:
+             self.plutoInit()
+             self.isFirstIteration = False
+        
+        if self.isPlutoRunning:
+            self.getData()
+            self._wave_ax.clear()
+            self._wave_ax.set_ylim(-100,0)
+        
+            self._wave_ax.set_ylabel("dBm", color='white')
+        
+            def millions(x, pos):
+                if x<1e6:
+                    return '%1.1fkHz' % (x*1e-3)
+                elif x>=1e6 and x<1e9:
+                    return '%1.1fMHz' % (x*1e-6)
+                elif x>=1e9:
+                    return '%1.1fGHz' % (x*1e-9)
+                
 
-        self._wave_ax.figure.canvas.draw()
-        self._line.figure.canvas.draw()
-    
-        self.peaks.sort(key=lambda x:x[0])
-        for row in range(len(self.peaks)):
-            self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.peaks[row][0])))
-            print(f"Adding {self.peaks[row][0]} at: {row}")
+            formatter = FuncFormatter(millions)
+            self._wave_ax.xaxis.set_major_formatter(formatter)
+        
+            self._wave_ax.plot(self.freq,self.data)
+            
+            self.renderPeaks()
+                
+            self._line.set_array(np.reshape(self.imageArray,(100,self.bufferSize)))
+            self._line.set(clim=(self.colorMeshMin,self.colorMeshMax))
+
+            self._wave_ax.figure.canvas.draw()
+            self._line.figure.canvas.draw()
+        
+            self.peaks.sort(key=lambda x:x[0])
+            for row in range(len(self.peaks)):
+                self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.peaks[row][0])))
+                print(f"Adding {self.peaks[row][0]} at: {row}")
         
     def renderPeaks(self):
         x,y = self.checkPeaks()
@@ -179,9 +197,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.freq = self.freq + self.center_freq
         
     def getData(self):
-        self.signal = self.sdr.rx()
-        self.processData()
-        self.getFrequencyArray()
+        if self.isPlutoRunning:
+            self.signal = self.sdr.rx()
+            self.processData()
+            self.getFrequencyArray()
 
     def dataFilter(self):
         kernel = np.ones(10)/10
@@ -244,6 +263,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.getFrequencyArray()
         
+    def plutoStartChangeState(self):
+        self.isPlutoRunning = not self.isPlutoRunning
+        self.isFirstIteration = not self.isFirstIteration
+        
     def changeHistLevels(self):
         self.colorMeshMin, self.colorMeshMax = self.hist.getLevels()
 
@@ -293,14 +316,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetPlateauSize = self.pSetPlateauSizeSlider.value()
 
     def recChangeRecordingState(self):
-        self.isRecording = not self.isRecording
-        if self.isRecording:
-            self.recButton.setText("Stop")
-        elif not self.isRecording:
-            self.recButton.setText("Start")
+        
+        if self.isFile:
+            self.isRecording = not self.isRecording
+            self.file
+            if self.isRecording:
+                self.recButton.setText("Stop")
+            elif not self.isRecording:
+                self.recButton.setText("Start")
+        else:
+            self.selectFle()
         
     def createWidgets(self):
         widget = QtWidgets.QWidget()
+        self.menuBar = QtWidgets.QMenuBar(self)
+        self.setMenuBar(self.menuBar)
+        
+        
         
         button1 = QtWidgets.QPushButton(widget)
         button1.setText("Change center freq!")
@@ -445,6 +477,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #Start/Stop button for recording to csv
         self.recButton = QtWidgets.QPushButton("Start")
         self.recButton.clicked.connect(self.recChangeRecordingState)
+        recButtonLayout = QtWidgets.QHBoxLayout()
+        recButtonLayout.addWidget(self.recButton)
+        recordingBoxWidget = QtWidgets.QGroupBox("Recording")
+        recordingBoxWidget.setLayout(recButtonLayout)
+        
+        
+        self.plutoStartButton = QtWidgets.QPushButton("Start Pluto!")
+        self.plutoStartButton.clicked.connect(self.plutoStartChangeState)
+        plutoStartButtonLayout = QtWidgets.QHBoxLayout()
+        plutoStartButtonLayout.addWidget(self.plutoStartButton)
+        plutoStartBoxWidget = QtWidgets.QGroupBox("I/O")
+        plutoStartBoxWidget.setLayout(plutoStartButtonLayout)
         
         
         layoutpSetBox = QtWidgets.QFormLayout()
@@ -481,12 +525,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         samplingSetBoxWidget = QtWidgets.QGroupBox("Peak settings")
         samplingSetBoxWidget.setLayout(layoutSamplingSetBox)
         
-        recButtonLayout = QtWidgets.QHBoxLayout()
-        recButtonLayout.addWidget(self.recButton)
         
-        recordingBoxWidget = QtWidgets.QGroupBox("Recording")
-        recordingBoxWidget.setLayout(recButtonLayout)
         
+        
+        
+        layoutLeftBox.addWidget(plutoStartBoxWidget)
         layoutLeftBox.addWidget(recordingBoxWidget)
         layoutLeftBox.addWidget(samplingSetBoxWidget)
         layoutLeftBox.addWidget(pSetBoxWidget)
