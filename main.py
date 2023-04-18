@@ -92,7 +92,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def selectFle(self):
         fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', 
-         'c:\\',"Image files (*.csv *.txt)")
+         'c:\\',"Text files (*.csv *.txt)")
+        
+        print(f"opened: {fname}")
 
 
     def peakFinderInit(self):
