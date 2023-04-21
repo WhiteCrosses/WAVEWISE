@@ -13,16 +13,18 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 import matplotlib.pyplot as plt
 import pandas as pd
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtWidgets import QMainWindow, QAction, qApp, QApplication
 
 from PyQt5.QtGui import QIcon
 import csv
+import random
 
 import pyqtgraph as pg
 
 from scipy import signal
 from scipy.fft import fftshift
+
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -46,11 +48,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bufferSize = 1024
         self.startFreq = self.center_freq-(self.sampleRate/2)
         
+        self.isPlutoRunning = False
         self.frameTime = 100
         
         self.isRecording = False
         self.isFirstIteration = False
-        self.isPlutoRunning = False
+        
         self.isFile = False
         
         self.filterFrame = 5
@@ -75,8 +78,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.createWidgets()
         self.firstIteration()
-        
-        
+          
     def firstIteration(self):
         self.x = np.arange(self.startFreq,self.bufferSize+self.startFreq)
         self.signal = self.x * 0
@@ -91,11 +93,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._middleBox = QtWidgets.QWidget()
 
     def selectFle(self):
-        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', 
-         'c:\\',"Text files (*.csv *.txt)")
         
-        print(f"opened: {fname}")
-
+        print("opened:")
 
     def peakFinderInit(self):
         self.pSetHeight = -50
@@ -153,12 +152,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.peaks.sort(key=lambda x:x[0])
             for row in range(len(self.peaks)):
                 self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.peaks[row][0])))
-                print(f"Adding {self.peaks[row][0]} at: {row}")
         
     def renderPeaks(self):
         x,y = self.checkPeaks()
         buffer_size = self.pSetDistance / 2
-        print(buffer_size)
         peak_array = x
         
         
@@ -170,8 +167,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 m[1]=False
                 if n+buffer_size > m[0] > n-buffer_size:
                     peakExists = True
-                    
-                    print(f"existing peak found at: {n}, delta: {np.abs(m[0]-n)}")
+
                     m = [n,True]
                     break
                 #print("\n")
@@ -181,15 +177,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         for m in self.peaks:
             if m[1]==False and m[2]<=0:
-                print(f"removed:{m}")
                 self.peaks.remove(m)
             elif m[1]==False and m[2]>0:
                 m[2]-=1
             elif m[1]==True:
                 m[2]=5
-        
-        print("Peaks:")
-        print(self.peaks)
                      
         for i in x:
             self._wave_ax.axvline(self.freq[i], color='r')
@@ -257,7 +249,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def setCenterFreq(self):
         value = float(self.centerFreqBox.displayText())
-        if value == 0:
+        print(value)
+        if value <= 0:
             pass
         else:
             self.center_freq = int(value * 1e6)
@@ -278,12 +271,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def pSetHeightChange(self):
         self.pSetHeight = self.pSetHeightSlider.value()
         self.pSetHeightSpinBox.setValue(self.pSetHeight)
-        print(self.pSetHeight)
   
     def pSetHeightChangeSpinBox(self):
         self.pSetHeight = self.pSetHeightSpinBox.value()
         self.pSetHeightSlider.setValue(self.pSetHeight)
-        print(self.pSetHeight)
               
     def pSetDistanceChange(self):
         self.pSetDistance = int(self.pSetDistanceSlider.value()*self.bufferSize/100)
@@ -328,6 +319,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.recButton.setText("Start")
         else:
             self.selectFle()
+      
+    def eventFilter(self, object, event):
+        if event.type() == QEvent.Enter:
+            print(object.description)
+            return True
+        elif event.type() == QEvent.Leave:
+            print("Mouse is not over the label")
+                    
+        return False
         
     def createWidgets(self):
         widget = QtWidgets.QWidget()
@@ -344,11 +344,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.sampleRateBox.setInputMask("999.9999")
         self.sampleRateBox.setText("10.0000") 
         self.sampleRateBox.returnPressed.connect(self.setSampleRate)
+        self.sampleRateBox.description = "Sample Rate in MHz."
+        self.sampleRateBox.installEventFilter(self)
         
         self.centerFreqBox = QtWidgets.QLineEdit()
         self.centerFreqBox.setInputMask("999.9999")
         self.centerFreqBox.setText("100.0000") 
         self.centerFreqBox.returnPressed.connect(self.setCenterFreq)
+        self.centerFreqBox.description = "Center frequency in MHz."
+        self.centerFreqBox.installEventFilter(self)
         
         self.hist = pg.HistogramLUTWidget(gradientPosition="left")
         self.hist.setLevels(min=self.histMin, max=self.histMax)
@@ -471,6 +475,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetPlateauSizeSlider.valueChanged.connect(self.pSetPlateauSizeChange)
         self.pSetPlateauSizeSlider.setToolTip("Required size of the flat top of peaks in samples.")
         
+        self.statusBar = QtWidgets.QStatusBar()
+        self.setStatusBar(self.statusBar)
+        self.statusBar.showMessage("DUPA")
+        
+        
         
         #Peak tracking table
         self.pRapTable = QtWidgets.QTableWidget(10,3)
@@ -558,7 +567,109 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._timer = waterfall_canvas.new_timer(100)
         self._timer.add_callback(self._update_canvas)
         self._timer.start()
+
+    def closeEvent(self, event):
+        plot.close()
+        event.accept()
+
+
+class TransmitWindow(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.frequencyTable = np.array(np.zeros((3,2)))
+        self.buffer = 1024
+        self.bufferAranged = np.array(np.arange(0,1024,1))
+        self.mainLayout = QtWidgets.QVBoxLayout()
+        
+        self._initPlotWidget()
+        self._initFrequencyAddingWidget()
+        
+        self.setLayout(self.mainLayout)
+        
+    def _initPlotWidget(self):
+        self.figure = plt.figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.mainLayout.addWidget(self.canvas)
+        self.figure.clear()
+        
+        self.ax = self.figure.add_subplot(111)
+        data = np.zeros((1024))
+        
+        self.ax.plot(self.bufferAranged, data, '*-')
+        self.canvas.draw()
+
+    def _initFrequencyAddingWidget(self):
+        self.tableWidget = QtWidgets.QTableWidget()
+        self.buttonWidget = QtWidgets.QPushButton()
+        self.spinWidget = QtWidgets.QSpinBox()
+        
+        self.tableWidget.cellChanged.connect(self.changeFrequencyArray)
+        self.tableWidget.setRowCount(3)
+        self.tableWidget.setColumnCount(2)
+        
+        self.buttonWidget.clicked.connect(self.transmit)
+        
+        frequencyAddingBox = QtWidgets.QWidget()
+        frequencyAddingLayout = QtWidgets.QVBoxLayout()
+        
+        frequencyAddingLayout.addWidget(self.tableWidget)
+        frequencyAddingLayout.addWidget(self.buttonWidget)
+        frequencyAddingLayout.addWidget(self.spinWidget)
+        
+        frequencyAddingBox.setLayout(frequencyAddingLayout)
+        
+        self.mainLayout.addWidget(frequencyAddingBox)
+        
+    def changeFrequencyArray(self,row,column):
+        self.frequencyTable[row,column] = self.tableWidget.item(row,column).text()
+        
+        self.signal = np.zeros((self.buffer))
+        for row in self.frequencyTable:
+            f = row[0]
+            w = 2 * np.pi * f
+            data = np.sin(w*self.bufferAranged*0.001)
+            self.signal += data
+        
+        self.figure.clear()
+        self.ax = self.figure.add_subplot(111)
+        self.ax.plot(self.bufferAranged,self.signal, '*-')
+        self.canvas.draw()
+        #self.ax.plot(self.signal, '*-')
+        #self.canvas.draw()
     
+    def transmit(self):
+        print(app.bufferSize)
+        if app.isPlutoRunning:
+            sdr = app.sdr
+            sdr.tx_rf_bandwidth = int(app.sampleRate) # filter cutoff, just set it to the same as sample rate
+            sdr.tx_lo = int(app.center_freq)
+            sdr.tx_hardwaregain_chan0 = -30 # Increase to increase tx power, valid range is -90 to 0 dB
+
+            N = 1000 # number of samples to transmit at once
+            t = np.arange(N)/app.sampleRate
+            samples = None
+            for row in self.frequencyTable:
+                if samples is None and row[0] is not None:
+                    samples = 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t)
+                elif row[0] is not None:
+                    samples += 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t) # Simulate a sinusoid of 100 kHz, so it should show up at 915.1 MHz at the receiver
+                print(row[0])
+            
+            samples *= 2**14 # The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
+            
+            sdr.tx_cyclic_buffer = True # Enable cyclic buffers
+            sdr.tx(samples) # start transmitting  
+            for i in range (0, 10):
+                raw_data = sdr.rx()
+            sdr.tx_destroy_buffer()
+        else:
+            print("Pluto not running!")
+
+    def closeEvent(self, event):
+        app.close()
+        event.accept()
+
+
 if __name__ == "__main__":
     # Check whether there is already a running QApplication (e.g., if running
     # from an IDE).
@@ -567,7 +678,9 @@ if __name__ == "__main__":
         qapp = QtWidgets.QApplication(sys.argv)
 
     app = ApplicationWindow()
+    plot = TransmitWindow()
     app.show()
+    plot.show()
     app.activateWindow()
     app.raise_()
     qapp.exec()
