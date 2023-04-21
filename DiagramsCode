@@ -1,0 +1,12 @@
+https://www.plantuml.com/
+
+
+@startuml
+participant "Adalm-Pluto" order 10
+participant Backend order 20
+participant Frontend order 30
+Backend -> "Adalm-Pluto" : 
+Frontend -> Backend
+"Adalm-Pluto" -> Backend : hello
+Backend -> Frontend : test
+@enduml
