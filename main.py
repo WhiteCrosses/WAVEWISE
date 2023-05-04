@@ -90,7 +90,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self._line = self._waterfall_ax.pcolorfast(np.reshape(self.imageArray,(100,self.bufferSize)),vmin=self.colorMeshMin,vmax=self.colorMeshMax)
         self._waterfall_ax.invert_yaxis()
-
+        self._wave_ax.set_ylim(-100,0)
+        self._wave_ax.set_ylim(0,100)
     def mainWidgetsInit(self):
         self._main = QtWidgets.QWidget()
         self._leftBox = QtWidgets.QWidget()
@@ -156,7 +157,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.peaks.sort(key=lambda x:x[0])
             for row in range(len(self.peaks)):
                 self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.peaks[row][0])))
-        
+
+            for i in self.recMarkerValues:
+                self._wave_ax.axvline(i, color='b')
+            
     def renderPeaks(self):
         x,y = self.checkPeaks()
         buffer_size = self.pSetDistance / 2
@@ -334,22 +338,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         return False
     
     def recTypeChange(self, index):
-        match index:
-            case 0: #"Full Range continuous",
-                pass
-            case 1: #"Narrow Range continuous",
-                pass
-            case 2: #"Full Range single frame",
-                pass
-            case 3: #"Narrow Range single frame",
-                pass
-            case 4: #"Peaks continuous",
-                pass
-            case 5: #"Peaks single frame"
-                pass
+        self.recType = index
                 
     def recRangeChange(self):
-        print(self.recRangeSelector.value())
+        self.recMarkerValues = self.recRangeSelector.value()
         
             
     def createWidgets(self):
@@ -556,8 +548,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #layoutpSetBox.addRow("Prominence", self.pSetProminenceSlider)
         layoutpSetBox.addRow("Width", self.pSetWidthSlider)
         #layoutpSetBox.addRow("Wlen", self.pSetWlenSlider)
-        layoutpSetBox.addRow("Relative Height", self.pSetRelHeightSlider)
-        layoutpSetBox.addRow("Plateau Size", self.pSetPlateauSizeSlider)
+        #layoutpSetBox.addRow("Relative Height", self.pSetRelHeightSlider)
+        #layoutpSetBox.addRow("Plateau Size", self.pSetPlateauSizeSlider)
 
         layoutpRapBox = QtWidgets.QTableWidget
 
@@ -651,7 +643,7 @@ class TransmitWindow(QtWidgets.QWidget):
         
         self.tableWidget.cellChanged.connect(self.changeFrequencyArray)
         self.tableWidget.setRowCount(3)
-        self.tableWidget.setColumnCount(2)
+        self.tableWidget.setColumnCount(1)
         
         self.buttonWidget.clicked.connect(self.transmit)
         
