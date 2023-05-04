@@ -4,7 +4,9 @@ import adi
 
 import numpy as np
 
+#Krzywe transmisyjne
 
+from superqt import QLabeledRangeSlider
 
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.backends.backend_qtagg import (
@@ -63,8 +65,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.colorMeshMax = self.histMax
         
         self.bgColor = '#0b213b'
-        self.setFixedWidth(1600)
-        self.setFixedHeight(900)
+        self.setGeometry(0,0,1600,900)
+        
+        #self.setFixedWidth(1600)
+        #self.setFixedHeight(900)
         
         self.peaks = []
         
@@ -322,13 +326,32 @@ class ApplicationWindow(QtWidgets.QMainWindow):
       
     def eventFilter(self, object, event):
         if event.type() == QEvent.Enter:
-            print(object.description)
+            self.statusBar.showMessage(object.description)
             return True
         elif event.type() == QEvent.Leave:
             print("Mouse is not over the label")
                     
         return False
+    
+    def recTypeChange(self, index):
+        match index:
+            case 0: #"Full Range continuous",
+                pass
+            case 1: #"Narrow Range continuous",
+                pass
+            case 2: #"Full Range single frame",
+                pass
+            case 3: #"Narrow Range single frame",
+                pass
+            case 4: #"Peaks continuous",
+                pass
+            case 5: #"Peaks single frame"
+                pass
+                
+    def recRangeChange(self):
+        print(self.recRangeSelector.value())
         
+            
     def createWidgets(self):
         widget = QtWidgets.QWidget()
         self.menuBar = QtWidgets.QMenuBar(self)
@@ -358,6 +381,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.hist.setLevels(min=self.histMin, max=self.histMax)
         self.hist.sigLevelsChanged.connect(self.changeHistLevels)
         self.hist.disableAutoHistogramRange()
+        self.hist.description = "Select range for color saturation on histogram."
+        self.hist.installEventFilter(self)
         
         #Peak settings
         #height
@@ -370,12 +395,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetHeightSlider.setSingleStep(5)
         self.pSetHeightSlider.valueChanged.connect(self.pSetHeightChange)
         self.pSetHeightSlider.setToolTip("Required height of peaks.")
+        self.pSetHeightSlider.description = "Declare minimum height to peak be detected. Values ranging from -100 to 0."
+        self.pSetHeightSlider.installEventFilter(self)
         
         
         self.pSetHeightSpinBox = QtWidgets.QSpinBox()
         self.pSetHeightSpinBox.valueChanged.connect(self.pSetHeightChangeSpinBox)
         self.pSetHeightSpinBox.setRange(-100,0)
         self.pSetHeightSpinBox.setSingleStep(5)
+        self.pSetHeightSpinBox.description = "Declare minimum height to peak be detected. Values ranging from -100 to 0."
+        self.pSetHeightSpinBox.installEventFilter(self)
         
         
         self.pSetHeightSlider.setValue(-50)
@@ -388,7 +417,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetHeightBox = QtWidgets.QHBoxLayout()
         self.pSetHeightBox.addLayout(self.pSetHeightBoxLayout)
         
-        
         #thereshold
         self.pSetTheresholdSlider = QtWidgets.QSlider(Qt.Horizontal)
         self.pSetTheresholdSlider.setFocusPolicy(Qt.StrongFocus)
@@ -399,6 +427,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetTheresholdSlider.setSingleStep(1)
         self.pSetTheresholdSlider.valueChanged.connect(self.pSetTheresholdChange)
         self.pSetTheresholdSlider.setToolTip("Required threshold of peaks, the vertical distance to its neighboring samples.")
+        self.pSetTheresholdSlider.description = "Declare thereshold of the peak be detected."
+        self.pSetTheresholdSlider.installEventFilter(self)
         
         
         self.pSetTheresholdSpinBox = QtWidgets.QSpinBox()
@@ -428,6 +458,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetDistanceSlider.setSingleStep(1)
         self.pSetDistanceSlider.valueChanged.connect(self.pSetDistanceChange)
         self.pSetDistanceSlider.setToolTip("Required minimal horizontal distance (>= 1) in samples between neighbouring peaks.\nSmaller peaks are removed first until the condition is fulfilled for all remaining peaks.")
+        self.pSetDistanceSlider.description = "Required minimal horizontal distance (>= 1) in samples between neighbouring peaks.\nSmaller peaks are removed first until the condition is fulfilled for all remaining peaks."
+        self.pSetDistanceSlider.installEventFilter(self)
+        
         
         #prominence
         self.pSetProminenceSlider = QtWidgets.QSlider(Qt.Horizontal)
@@ -479,7 +512,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setStatusBar(self.statusBar)
         self.statusBar.showMessage("DUPA")
         
+        self.recTypeChoice = QtWidgets.QComboBox()
+        self.recTypeChoice.addItems(("Full Range continuous",
+                                    "Narrow Range continuous",
+                                    "Full Range single frame",
+                                    "Narrow Range single frame",
+                                    "Peaks continuous",
+                                    "Peaks single frame"))
+        self.recTypeChoice.currentIndexChanged.connect(self.recTypeChange)
         
+        self.recRangeSelector = QLabeledRangeSlider(Qt.Horizontal)
+        self.recRangeSelector.setValue((0,121))
+        self.recRangeSelector.valueChanged.connect(self.recRangeChange)
         
         #Peak tracking table
         self.pRapTable = QtWidgets.QTableWidget(10,3)
@@ -488,8 +532,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #Start/Stop button for recording to csv
         self.recButton = QtWidgets.QPushButton("Start")
         self.recButton.clicked.connect(self.recChangeRecordingState)
-        recButtonLayout = QtWidgets.QHBoxLayout()
-        recButtonLayout.addWidget(self.recButton)
+        recButtonLayout = QtWidgets.QGridLayout()
+        recButtonLayout.addWidget(self.recButton,0,0)
+        recButtonLayout.addWidget(self.recTypeChoice,0,1)
+        recButtonLayout.addWidget(self.recRangeSelector,1,0,1,2)
+        
         recordingBoxWidget = QtWidgets.QGroupBox("Recording")
         recordingBoxWidget.setLayout(recButtonLayout)
         
@@ -601,7 +648,6 @@ class TransmitWindow(QtWidgets.QWidget):
     def _initFrequencyAddingWidget(self):
         self.tableWidget = QtWidgets.QTableWidget()
         self.buttonWidget = QtWidgets.QPushButton()
-        self.spinWidget = QtWidgets.QSpinBox()
         
         self.tableWidget.cellChanged.connect(self.changeFrequencyArray)
         self.tableWidget.setRowCount(3)
@@ -610,11 +656,11 @@ class TransmitWindow(QtWidgets.QWidget):
         self.buttonWidget.clicked.connect(self.transmit)
         
         frequencyAddingBox = QtWidgets.QWidget()
-        frequencyAddingLayout = QtWidgets.QVBoxLayout()
+        frequencyAddingLayout = QtWidgets.QHBoxLayout()
         
         frequencyAddingLayout.addWidget(self.tableWidget)
         frequencyAddingLayout.addWidget(self.buttonWidget)
-        frequencyAddingLayout.addWidget(self.spinWidget)
+        
         
         frequencyAddingBox.setLayout(frequencyAddingLayout)
         
@@ -643,7 +689,7 @@ class TransmitWindow(QtWidgets.QWidget):
             sdr = app.sdr
             sdr.tx_rf_bandwidth = int(app.sampleRate) # filter cutoff, just set it to the same as sample rate
             sdr.tx_lo = int(app.center_freq)
-            sdr.tx_hardwaregain_chan0 = -30 # Increase to increase tx power, valid range is -90 to 0 dB
+            sdr.tx_hardwaregain_chan0 = -10 # Increase to increase tx power, valid range is -90 to 0 dB
 
             N = 1000 # number of samples to transmit at once
             t = np.arange(N)/app.sampleRate
