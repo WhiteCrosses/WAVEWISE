@@ -50,6 +50,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bufferSize = 1024
         self.startFreq = self.center_freq-(self.sampleRate/2)
         
+        self.recMarkerValues = (0,0)
+        
         self.isPlutoRunning = False
         self.frameTime = 100
         
@@ -147,7 +149,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self._wave_ax.plot(self.freq,self.data)
             
             self.renderPeaks()
-                
+            
+            for i in self.recMarkerValues:
+                self._wave_ax.axvline(self.center_freq - (self.sampleRate/2) + (i/100*self.sampleRate), color='b')
+                print(i*100000)
+            
+            
             self._line.set_array(np.reshape(self.imageArray,(100,self.bufferSize)))
             self._line.set(clim=(self.colorMeshMin,self.colorMeshMax))
 
@@ -158,8 +165,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             for row in range(len(self.peaks)):
                 self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.peaks[row][0])))
 
-            for i in self.recMarkerValues:
-                self._wave_ax.axvline(i, color='b')
+            
+                
+            
             
     def renderPeaks(self):
         x,y = self.checkPeaks()
@@ -171,7 +179,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for n in peak_array:
             peakExists = False
             for m in self.peaks:
-                #print(f"n = {n}\nm = {m[0]}")
                 m[1]=False
                 if n+buffer_size > m[0] > n-buffer_size:
                     peakExists = True
@@ -193,7 +200,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                      
         for i in x:
             self._wave_ax.axvline(self.freq[i], color='r')
-    
+            
+            
     def getFrequencyArray(self):
         self.freq = np.fft.fftfreq(self.signal.size,d=1/self.sampleRate)
         self.freq = self.freq + self.center_freq
