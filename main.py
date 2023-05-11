@@ -4,7 +4,7 @@ import adi
 
 import numpy as np
 import threading
-
+import cmath
 
 #Krzywe transmisyjne
 
@@ -452,7 +452,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.pSetTheresholdSlider.setSingleStep(1)
         self.pSetTheresholdSlider.valueChanged.connect(self.pSetTheresholdChange)
         #self.pSetTheresholdSlider.setToolTip("Required threshold of peaks, the vertical distance to its neighboring samples.")
-        self.pSetTheresholdSlider.description = "Declare thereshold of the peak be detected."
+        self.pSetTheresholdSlider.description = "Declare minimum diference in the values between samples"
         self.pSetTheresholdSlider.installEventFilter(self)
         
         
@@ -537,13 +537,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.statusBar = QtWidgets.QStatusBar()
         self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("DUPA")
+        self.statusBar.showMessage(" ")
         
         self.recTypeChoice = QtWidgets.QComboBox()
         self.recTypeChoice.addItems(("Save peaks",
                                     "Save waterfall",
                                     "Save both"))
         self.recTypeChoice.currentIndexChanged.connect(self.recTypeChange)
+        self.recTypeChoice.description = "Declare requested data to be saved"
+        self.recTypeChoice.installEventFilter(self)
         
         self.recRangeSelector = QLabeledRangeSlider(Qt.Horizontal)
         self.recRangeSelector.setValue((0,121))
@@ -559,6 +561,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         recButtonLayout = QtWidgets.QGridLayout()
         recButtonLayout.addWidget(self.recButton,0,0)
         recButtonLayout.addWidget(self.recTypeChoice,0,1)
+        self.recButton.description = "Save data to the file."
+        self.recButton.installEventFilter(self)
         #   recButtonLayout.addWidget(self.recRangeSelector,1,0,1,2)
         
         recordingBoxWidget = QtWidgets.QGroupBox("Recording")
@@ -566,6 +570,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         
         self.plutoStartButton = QtWidgets.QPushButton("Start Pluto!")
+        self.plutoStartButton.installEventFilter(self)
+        self.plutoStartButton.description = "Start the device"
         self.plutoStartButton.clicked.connect(self.plutoStartChangeState)
         plutoStartButtonLayout = QtWidgets.QHBoxLayout()
         plutoStartButtonLayout.addWidget(self.plutoStartButton)
@@ -673,18 +679,13 @@ class TransmitWindow(QtWidgets.QWidget):
     def gainChange(self):
         self.gain = self.gainWidget.value()
 
-    def normalize(self,arr, t_min, t_max):
-        norm_arr = []
-        diff = t_max - t_min
-        diff_arr = max(arr) - min(arr)   
-        for i in arr:
-            temp = (((i - min(arr))*diff)/diff_arr) + t_min
-            norm_arr.append(temp)
-        return norm_arr
+    def normalize(self,arr):
+        max_magnitude = np.max(np.abs(arr))  # Find the maximum absolute magnitude in the array
+        normalized_arr = arr / max_magnitude  # Divide the array by the maximum magnitude
+        return normalized_arr
 
     def runTransmit(self):
-        while(not self.done):
-            self.transmit()
+        self.transmit()
     
     def stopTransmit(self):
         self.done = True
@@ -720,7 +721,7 @@ class TransmitWindow(QtWidgets.QWidget):
         self.gainWidget.valueChanged.connect(self.gainChange)
         
         self.buttonWidget.setText("Transmit")
-        self.buttonWidget.clicked.connect(self.transmit)
+        self.buttonWidget.clicked.connect(self.buttonClickedEvent)
         
         
         frequencyAddingBox = QtWidgets.QWidget()
@@ -745,7 +746,7 @@ class TransmitWindow(QtWidgets.QWidget):
             data = np.sin(w*self.bufferAranged*0.001)
             self.signal += data
         
-        self.signal = self.normalize(self.signal, -1, 1)
+        self.signal = self.normalize(self.signal)
         self.figure.clear()
         self.ax = self.figure.add_subplot(111)
         self.ax.plot(self.bufferAranged,self.signal, '*-')
@@ -772,17 +773,15 @@ class TransmitWindow(QtWidgets.QWidget):
                 elif row[0] is not None:
                     samples += 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t) # Simulate a sinusoid of 100 kHz, so it should show up at 915.1 MHz at the receiver
             
-            samples = self.normalize(samples, -1, 1)
-            
+            samples = self.normalize(samples)
+            print(samples)
             samples *= 2**14 # The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
             
             sdr.tx_cyclic_buffer = True # Enable cyclic buffers
             print("transmiting!")
             sdr.tx(samples)
-            for x in range(10):
-                sdr.rx()
             print("transmited!")
-            sdr.tx_destroy_buffer()
+            
         else:
             print("Pluto not running!")
 
