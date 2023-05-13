@@ -1,34 +1,26 @@
+import pyqtgraph as pg
+
 import sys
-import time
 import adi
 
 import numpy as np
-import threading
-import cmath
 
 #Krzywe transmisyjne
 
 from superqt import QLabeledRangeSlider, QLabeledSlider
 
 from matplotlib.backends.qt_compat import QtWidgets
-from matplotlib.backends.backend_qtagg import (
-    FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
-from matplotlib import ticker
 import matplotlib.pyplot as plt
-import pandas as pd
 from PyQt5.QtCore import Qt, QEvent
-from PyQt5.QtWidgets import QMainWindow, QAction, qApp, QApplication
 
-from PyQt5.QtGui import QIcon
 import csv
-import random
 
-import pyqtgraph as pg
+
 
 from scipy import signal
-from scipy.fft import fftshift
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -87,7 +79,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.createWidgets()
         self.firstIteration()
-          
+    
     def firstIteration(self):
 
         self.x = np.arange(self.startFreq,self.bufferSize+self.startFreq)
@@ -100,13 +92,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         _ticks = ticks/4*self.sampleRate+self.startFreq
         
         
-        
-        self._waterfall_ax.locator_params(axis='both', nbins=5)
-        self._waterfall_ax.set_xticklabels(_ticks)
+        self.calculateWaterfallNodes()
         #self._waterfall_ax.xaxis.set_major_locator(ticker.FixedLocator(_ticks))
         
         self._wave_ax.set_ylim(-100,0)
         self._wave_ax.set_ylim(0,100)
+    
     def mainWidgetsInit(self):
         self._main = QtWidgets.QWidget()
         self._leftBox = QtWidgets.QWidget()
@@ -159,9 +150,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             formatter = FuncFormatter(millions)
             self._wave_ax.xaxis.set_major_formatter(formatter)
             
+            index = 0
+            dataToRender = None
+            for x in self.data:
+                dataToRender[index] = (self.freq[index],x)
+                index+=1
+            dataToRender = np.sort(dataToRender,axis=0)
             
-            
-            self._wave_ax.plot(self.freq,self.data)
+            self._wave_ax.plot(dataToRender, linestyle='None', marker = '.', color='r')
             
             self.renderPeaks()
             
@@ -243,7 +239,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #Smooth out noise
         self.dataFilter()
         
-        #self.data = self.data + self.constantPart
+        
+        
         self.addToImageArray()
     
     def addToImageArray(self):    
@@ -263,6 +260,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             plateau_size=self.pSetPlateauSize)
         return x,y
     
+    def calculateWaterfallNodes(self):
+        ticks = np.array([0,1,2,3,4])
+        _ticks = ticks/4*self.sampleRate+self.startFreq
+        
+        self._waterfall_ax.locator_params(axis='both', nbins=5)
+        self._waterfall_ax.set_xticklabels(_ticks)
+    
     def setSampleRate(self):
         value = self.sampleRateBox.value()
         if value < 1:
@@ -273,7 +277,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             pass
         self.sdr.sample_rate = self.sampleRate
         self.getFrequencyArray()
-    
+
+        print("sample rate has been changed")
+        
     def setCenterFreq(self):
         value = float(self.centerFreqBox.displayText())
         print(value)
@@ -282,6 +288,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             self.center_freq = int(value * 1e6)
             self.sdr.rx_lo = self.center_freq
+        
+        self.calculateWaterfallNodes()
+        
         
         self.getFrequencyArray()
         
@@ -389,15 +398,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         
         self.sampleRateBox = QtWidgets.QLineEdit()
-        self.sampleRateBox.setInputMask("999.9999")
+        self.sampleRateBox.setInputMask("99.9999")
         self.sampleRateBox.setText("10.0000") 
+        self.sampleRateBox.setFocusPolicy(Qt.StrongFocus) 
         self.sampleRateBox.returnPressed.connect(self.setSampleRate)
         self.sampleRateBox.description = "Sample Rate in MHz."
         self.sampleRateBox.installEventFilter(self)
         
         self.centerFreqBox = QtWidgets.QLineEdit()
         self.centerFreqBox.setInputMask("9999.9999")
-        self.centerFreqBox.setText("100.0000") 
+        self.centerFreqBox.setText("0100.0000") 
+        self.centerFreqBox.setFocusPolicy(Qt.StrongFocus) 
         self.centerFreqBox.returnPressed.connect(self.setCenterFreq)
         self.centerFreqBox.description = "Center frequency in MHz."
         self.centerFreqBox.installEventFilter(self)
@@ -648,7 +659,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         plot.close()
         event.accept()
-
 
 class TransmitWindow(QtWidgets.QWidget):
     def __init__(self):
