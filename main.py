@@ -22,7 +22,7 @@ import csv
 
 from scipy import signal
 
-
+#foo bar
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
