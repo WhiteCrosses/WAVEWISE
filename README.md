@@ -55,9 +55,7 @@
 
 
 ## Contact
- Include your contact information (e.g., email, website) if you want users to reach out to you for support, feedback, or collaboration. 
+ Not filled yet. 
 
 ## Acknowledgments
- If you would like to acknowledge individuals or projects that have influenced or assisted your app project, include a section for acknowledgments. 
-
- Feel free to customize and expand upon this template to suit your specific app project. Good luck with your development! 
+ Not filled yet.
