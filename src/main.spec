@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(
-    ['C:/Users/admin/Documents/Programming/WAVEWISE/src/main.py'],
+    ['./src/main.py'],
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
