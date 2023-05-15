@@ -9,6 +9,7 @@ import numpy as np
 
 from superqt import QLabeledRangeSlider, QLabeledSlider
 
+import matplotlib.transforms as transforms
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
@@ -21,6 +22,27 @@ import csv
 
 
 from scipy import signal
+
+class Peak:
+    def __init__(self, frequency, power, distance):
+        self.frequency = frequency
+        self.distance = distance
+        self.min = self.frequency - self.distance
+        self.max = self.frequency + self.distance
+        self.tickCounter = 0
+        self.isChecked = False
+        self.power = power
+
+    def found(self, x, power):
+        self.frequency = x
+        self.power = power
+        self.min = self.frequency - self.distance
+        self.max = self.frequency + self.distance
+        self.resetTickCounter()
+        
+    def resetTickCounter(self):
+        self.isChecked = True
+        self.tickCounter = 0
 
 #foo bar
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -38,6 +60,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """
         self.histMin = -100
         self.histMax = 0
+        
+        
+        self.recType = 0
+        self.peakArray = []
+        self.delay = 100
         
         self.constantPart = 0
         self.sampleRate = int(10e6)
@@ -144,26 +171,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 elif x>=1e6 and x<1e9:
                     return '%1.1fMHz' % (x*1e-6)
                 elif x>=1e9:
-                    return '%1.1fGHz' % (x*1e-9)
+                    return '%1.4fGHz' % (x*1e-9)
                 
 
             formatter = FuncFormatter(millions)
             self._wave_ax.xaxis.set_major_formatter(formatter)
+            #self.freq = np.sort(self.freq)
+            #print(self.freq)
             
-            index = 0
-            dataToRender = None
-            for x in self.data:
-                dataToRender[index] = (self.freq[index],x)
-                index+=1
-            dataToRender = np.sort(dataToRender,axis=0)
             
-            self._wave_ax.plot(dataToRender, linestyle='None', marker = '.', color='r')
+            dataarray = list(zip(self.freq, self.data))
+            dataarray = sorted(dataarray, key=lambda x: x[0])
+            
+            self.freq, self.data = zip(*dataarray)
+            
+            self._wave_ax.plot(self.freq, self.data, color='blue')
             
             self.renderPeaks()
-            
-            for i in self.recMarkerValues:
-                self._wave_ax.axvline(self.center_freq - (self.sampleRate/2) + (i/100*self.sampleRate), color='b')
-            
             
             self._line.set_array(np.reshape(self.imageArray,(100,self.bufferSize)))
             self._line.set(clim=(self.colorMeshMin,self.colorMeshMax))
@@ -171,46 +195,44 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self._wave_ax.figure.canvas.draw()
             self._line.figure.canvas.draw()
         
-            self.peaks.sort(key=lambda x:x[0])
-            for row in range(len(self.peaks)):
-                self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.peaks[row][0])))
+            for row in range(10):
+                self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(""))
+            
+            for row in range(len(self.peakArray)):
+                self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.freq[self.peakArray[row].frequency])))
                  
     def renderPeaks(self):
         
-        x,y = self.checkPeaks()
+        x,y = self.checkPeaks()  
         
-        buffer_size = self.pSetDistance / 2
-        peak_array = (self.center_freq - self.sampleRate/2) + self.sampleRate*x/self.bufferSize
-        self.peaksToSave = [peak_array,y]
-        
-        
-        for n in peak_array:
-            peakExists = False
-            for m in self.peaks:
-                m[1]=False
-                if n+buffer_size > m[0] > n-buffer_size:
-                    peakExists = True
-
-                    m = [n,True,]
+        #Iterate through peaks to assign them new positions
+        m=0
+        for i in x:
+            found = False
+            for j in self.peakArray:
+                if j.min<=i<=j.max:
+                    j.found(i,y['peak_heights'][m])
+                    found = True
                     break
-                #print("\n")
-            
-            if not peakExists:
-                self.peaks.append([n,True,3])
-
-        for m in self.peaks:
-            if m[1]==False and m[2]<=0:
-                self.peaks.remove(m)
-            elif m[1]==False and m[2]>0:
-                m[2]-=1
-            elif m[1]==True:
-                m[2]=5
+                
+            if not found:
+                self.peakArray.append(Peak(i,y['peak_heights'][m],self.pSetDistance))
+            m+=1
+        
+        for j in self.peakArray:
+            if not j.isChecked:
+                j.tickCounter += 1
+                if j.tickCounter > 10:
+                    self.peakArray.remove(j)
+        
+        for j in self.peakArray:
+            j.isChecked = False
                      
         for i in x:
             self._wave_ax.axvline(self.freq[i], color='r')
               
     def getFrequencyArray(self):
-        self.freq = np.fft.fftfreq(self.signal.size,d=1/self.sampleRate)
+        self.freq = np.fft.fftfreq(1024,d=1/self.sampleRate)
         self.freq = self.freq + self.center_freq
         
     def getData(self):
@@ -261,12 +283,34 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         return x,y
     
     def calculateWaterfallNodes(self):
+        
+        def millions(x):
+                if x<1e6:
+                    return '%1.1fkHz' % (x*1e-3)
+                elif x>=1e6 and x<1e9:
+                    return '%1.1fMHz' % (x*1e-6)
+                elif x>=1e9:
+                    return '%1.4fGHz' % (x*1e-9)
+        
+        
+        
         ticks = np.array([0,1,2,3,4])
         _ticks = ticks/4*self.sampleRate+self.startFreq
         
+        formattedTicks = ['','','','','']
+        for i in range(len(_ticks)):
+            formattedTicks[i] = millions(_ticks[i])
+        
+        tickLoc = np.arange(0,1024,1024/4)
+        tickLoc = np.append(tickLoc,1024)
+        print(tickLoc)
+        self._waterfall_ax.set_xticks(tickLoc)
+        
         self._waterfall_ax.locator_params(axis='both', nbins=5)
-        self._waterfall_ax.set_xticklabels(_ticks)
+        self._waterfall_ax.set_xticklabels(formattedTicks)
     
+        
+        
     def setSampleRate(self):
         value = self.sampleRateBox.value()
         if value < 1:
@@ -287,6 +331,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             pass
         else:
             self.center_freq = int(value * 1e6)
+            self.startFreq = self.center_freq-(self.sampleRate/2)
             self.sdr.rx_lo = self.center_freq
         
         self.calculateWaterfallNodes()
@@ -367,16 +412,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             writer = csv.writer(file)            
             writer.writerow(["Frequency [Hz]", "Power [dBm]"])
             m=0
-            for i in self.peaksToSave[0]:
-                writer.writerow([i,self.peaksToSave[1]['peak_heights'][m]])
-                print([i,self.peaksToSave[1]['peak_heights'][m]])
-                m+=1
+            for i in self.peakArray:
+                writer.writerow([self.freq[i.frequency],i.power])
             file.close()
     
     def saveWaterfall(self):
         self._waterfall_ax.figure.savefig('waterfall.png')
     
     def recResolve(self):
+        
         match self.recType:
             case 0:
                 self.savePeaks()
@@ -385,7 +429,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             case 2:
                 self.savePeaks()
                 self.saveWaterfall()
-        
     def createWidgets(self):
         widget = QtWidgets.QWidget()
         self.menuBar = QtWidgets.QMenuBar(self)
@@ -652,7 +695,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self._waterfall_ax = waterfall_canvas.figure.subplots()
             self._wave_ax.tick_params(colors='white',which='both')
             
-        self._timer = waterfall_canvas.new_timer(100)
+        self._timer = waterfall_canvas.new_timer(self.delay)
         self._timer.add_callback(self._update_canvas)
         self._timer.start()
 
