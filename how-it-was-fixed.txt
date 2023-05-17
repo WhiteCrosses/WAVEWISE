@@ -1,0 +1,21 @@
+Co zrobiłem:
+
+0. Przejrzałem kod źródłowy żeby rozeznać się jakich bibliotek tam używasz, zauważyłem bibliotekę adi której nie ma w requirements.txt i dwa pliki .dll w repozytorium, które prawdopodobnie nie były nigdzie używane w kodzie - albo były, ale przez bibliotekę
+1. Przejrzałem logi, znalazłem problem z jakimś folderem /tmp
+2. Zajrzałem do readme tego skryptu do instalacji, było tam napisane że jak jest błąd z tmp to źle jest ustawiony folder src
+3. Przeniosłem plik main.py do folderu src
+4. Odpaliłem u siebie ten skrypt pyinstaller: pyinstaller.exe src\\main.py 
+5. Wygenerował .exe, które się nie włączało, bo nie miało jakiejś biblioteki (pyqtgraph)
+6. Wygenerowałem requirements.txt bo widziałęm, że nie ma w niej adi:
+pip install pipreqs
+pipreqs .
+7. Znowu pyinstaller.exe, z 4 minuty działał ale zrobił .exe
+8. Wygląda że wszystko działa, klikam "connect to pluto"
+9. Takichuj.exe, krzyczy że biblioteka adi nie ma czegoś takiego jak Pluto
+10. Patrzę w requirements.txt, dodało mi tam bibliotekę adi.trash zamiast adi - to jakaś biblioteka do kasowania danych xD
+11. Ręcznie modyfikuję requirements.txt dodając tam adi i usuwając adi.trash
+12. Znowu pyinstaller.exe
+13. Apka się już nie włącza, krzyczy przy starcie że brakuje jakiegoś dll, a prawdopodobnie brakowało go w momencie freeze'a paczek - podejrzewam te dwa .dlle które były w głównym folderze 
+--- tutaj następuje długie błądzenie po niczym, łącznie z dodawaniem debugowych printów w bibliotekach, dlaczego nie działa import DLL, bo nie ma żadnego sensownego komunikatu o błędzie
+14. zainstalowałem libiio
+15. działa
