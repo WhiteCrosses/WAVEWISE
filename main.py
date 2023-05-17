@@ -237,9 +237,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
     def getData(self):
         if self.isPlutoRunning:
-            self.signal = self.sdr.rx()
-            self.processData()
-            self.getFrequencyArray()
+            try:
+                self.signal = self.sdr.rx()
+                self.processData()
+                self.getFrequencyArray()
+            except:
+                pass
 
     def dataFilter(self):
         kernel = np.ones(10)/10
@@ -312,14 +315,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         
     def setSampleRate(self):
-        value = self.sampleRateBox.value()
+        value = self.sampleRateBox.text()
+        value = float(value)
         if value < 1:
             value = 1
             self.sampleRateBox.value = 1
         value = value * 1e6
         if value <= 0:
             pass
+        self.sampleRate = value
         self.sdr.sample_rate = self.sampleRate
+        self.plutoInit()
         self.getFrequencyArray()
 
         print("sample rate has been changed")
@@ -341,6 +347,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
     def plutoStartChangeState(self):
         self.isPlutoRunning = not self.isPlutoRunning
+        if self.isPlutoRunning:
+            self.plutoStartButton.setText("Stop Pluto!")
+        else:
+            self.plutoStartButton.setText("Start Pluto!")
         self.isFirstIteration = not self.isFirstIteration
         
     def changeHistLevels(self):
