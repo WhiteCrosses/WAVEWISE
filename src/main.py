@@ -309,8 +309,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._waterfall_ax.locator_params(axis='both', nbins=5)
         self._waterfall_ax.set_xticklabels(formattedTicks)
     
-        
-        
     def setSampleRate(self):
         value = self.sampleRateBox.value()
         if value < 1:
@@ -443,7 +441,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.sampleRateBox = QtWidgets.QLineEdit()
         self.sampleRateBox.setInputMask("99.9999")
         self.sampleRateBox.setText("10.0000") 
-        self.sampleRateBox.setFocusPolicy(Qt.StrongFocus) 
         self.sampleRateBox.returnPressed.connect(self.setSampleRate)
         self.sampleRateBox.description = "Sample Rate in MHz."
         self.sampleRateBox.installEventFilter(self)
@@ -451,7 +448,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.centerFreqBox = QtWidgets.QLineEdit()
         self.centerFreqBox.setInputMask("9999.9999")
         self.centerFreqBox.setText("0100.0000") 
-        self.centerFreqBox.setFocusPolicy(Qt.StrongFocus) 
         self.centerFreqBox.returnPressed.connect(self.setCenterFreq)
         self.centerFreqBox.description = "Center frequency in MHz."
         self.centerFreqBox.installEventFilter(self)
@@ -466,7 +462,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #Peak settings
         #height
         self.pSetHeightSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetHeightSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetHeightSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetHeightSlider.setTickInterval(5)
         self.pSetHeightSlider.setMinimum(-100)
@@ -498,7 +493,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #thereshold
         self.pSetTheresholdSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetTheresholdSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetTheresholdSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetTheresholdSlider.setTickInterval(5)
         self.pSetTheresholdSlider.setMinimum(1)
@@ -529,7 +523,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #distance
         self.pSetDistanceSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetDistanceSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetDistanceSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetDistanceSlider.setTickInterval(10)
         self.pSetDistanceSlider.setMinimum(1)
@@ -543,7 +536,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #prominence
         self.pSetProminenceSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetProminenceSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetProminenceSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetProminenceSlider.setTickInterval(10)
         self.pSetProminenceSlider.setSingleStep(1)
@@ -551,7 +543,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #width
         self.pSetWidthSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetWidthSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetWidthSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetWidthSlider.setTickInterval(10)
         self.pSetWidthSlider.setMinimum(1)
@@ -564,7 +555,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #wlen
         self.pSetWlenSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetWlenSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetWlenSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetWlenSlider.setTickInterval(10)
         self.pSetWlenSlider.setSingleStep(1)
@@ -572,7 +562,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #rel height
         self.pSetRelHeightSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetRelHeightSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetRelHeightSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetRelHeightSlider.setTickInterval(10)
         self.pSetRelHeightSlider.setSingleStep(1)
@@ -582,7 +571,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         #plateau size
         self.pSetPlateauSizeSlider = QtWidgets.QSlider(Qt.Horizontal)
-        self.pSetPlateauSizeSlider.setFocusPolicy(Qt.StrongFocus)
         self.pSetPlateauSizeSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.pSetPlateauSizeSlider.setTickInterval(10)
         self.pSetPlateauSizeSlider.setSingleStep(1)
@@ -765,7 +753,6 @@ class TransmitWindow(QtWidgets.QWidget):
         self.tableWidget.resize(self.tableWidget.sizeHint())
         
         self.gainWidget = QLabeledSlider(Qt.Horizontal)
-        self.gainWidget.setFocusPolicy(Qt.StrongFocus)
         self.gainWidget.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         self.gainWidget.setMinimum(-90)
         self.gainWidget.setMaximum(-10)
