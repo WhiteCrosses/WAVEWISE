@@ -19,6 +19,7 @@ from PyQt5.QtCore import Qt, QEvent
 
 import time
 import threading
+import os
 
 import csv
 
@@ -621,11 +622,26 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def saveWaterfall(self,filenameW):
         self._waterfall_ax.figure.savefig(filenameW)
     
+    def saveData(self,filenameD):
+        with open(filenameD, 'w', newline='') as file:
+            writer = csv.writer(file)            
+            writer.writerow(["Frequency [Hz]", "Power [dBm]"])
+            m=0
+            for i in range(len(self.data)):
+                writer.writerow([self.freq[i], self.data[i]])
+            file.close()
+    
     def recResolve(self):
         
-        filename = time.strftime("./output/%Y_%m_%d_%H_%M_%S")
-        filenameP = filename+".csv"
-        filenameW = filename+".png"
+        destFolder = "./output"
+        
+        if not os.path.exists(destFolder):
+            os.makedirs(destFolder)
+        
+        date = time.strftime("%Y_%m_%d_%H_%M_%S")
+        filenameP = destFolder+"/"+"PEAKS_"+date+".csv"
+        filenameW = destFolder+"/"+date+".png"
+        filenameD = destFolder+"/"+date+".csv"
         
         
         match self.recType:
@@ -634,7 +650,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             case 1:
                 self.saveWaterfall(filenameW)
             case 2:
+                self.saveData(filenameD)
+            case 3:
                 self.savePeaks(filenameP)
+                self.saveData(filenameD)
                 self.saveWaterfall(filenameW)
                 
     def pRapSelectPeak(self,row,column):
@@ -802,7 +821,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.recTypeChoice = QtWidgets.QComboBox()
         self.recTypeChoice.addItems(("Save peaks",
                                     "Save waterfall",
-                                    "Save both"))
+                                    "Save data frame",
+                                    "Save all"))
         self.recTypeChoice.currentIndexChanged.connect(self.recTypeChange)
         self.recTypeChoice.description = "Declare requested data to be saved"
         self.recTypeChoice.installEventFilter(self)
