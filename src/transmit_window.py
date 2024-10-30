@@ -1,28 +1,19 @@
-import pyqtgraph as pg
-
 import numpy as np
-from scipy.fft import fft
 # Krzywe transmisyjne
 
-from superqt import QLabeledRangeSlider, QLabeledSlider, QDoubleSlider
+from superqt import QLabeledSlider  # type: ignore
 
-import matplotlib.transforms as transforms
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.backends.backend_qtagg import FigureCanvas
-from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
 import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt, QEvent
-
+from PyQt5.QtCore import Qt  # type: ignore
 import threading
 
 
-from scipy import signal
-
-
 class TransmitWindow(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
+        self.app = app
         self.frequencyTable = np.array(np.zeros((3, 2)))
         self.buffer = 1024
         self.gain = -50
@@ -63,7 +54,7 @@ class TransmitWindow(QtWidgets.QWidget):
         if self.buttonWidget.text() == "Transmit":
             self.transmit()
             if self.selectedIndex == 0:
-                sdr = app.sdr
+                sdr = self.app.sdr
                 sdr.tx_destroy_buffer()
             else:
                 self.buttonWidget.setText("Stop")
@@ -72,7 +63,7 @@ class TransmitWindow(QtWidgets.QWidget):
             if self.selectedIndex == 1:
                 self.cyclicBreaker = True
                 # self.transmitCallback()
-            sdr = app.sdr
+            sdr = self.app.sdr
             sdr.tx_destroy_buffer()
             self.buttonWidget.setText("Transmit")
 
@@ -149,17 +140,17 @@ class TransmitWindow(QtWidgets.QWidget):
                 self.transmitDelay, self.transmitCallback).start()
 
         print("entered callback")
-        sdr = app.sdr
+        sdr = self.app.sdr
 
         # filter cutoff, just set it to the same as sample rate
-        sdr.tx_rf_bandwidth = int(app.sampleRate)
-        sdr.tx_lo = int(app.center_freq)
+        sdr.tx_rf_bandwidth = int(self.app.sampleRate)
+        sdr.tx_lo = int(self.app.center_freq)
         if self.gain > 0:
             return -1
         # Increase to increase tx power, valid range is -90 to 0 dB
         sdr.tx_hardwaregain_chan0 = self.gain
         N = 1000  # number of samples to transmit at once
-        t = np.arange(N)/app.sampleRate
+        t = np.arange(N)/self.app.sampleRate
         samples = None
         for row in self.frequencyTable:
             if samples is None and row[0] is not None:
@@ -180,7 +171,7 @@ class TransmitWindow(QtWidgets.QWidget):
         sdr.tx_destroy_buffer()
 
     def transmit(self):
-        if app.isPlutoRunning:
+        if self.app.isPlutoRunning:
 
             if self.selectedIndex == 0:   # Pulse
                 print("Performing pulse transmission")
@@ -195,16 +186,16 @@ class TransmitWindow(QtWidgets.QWidget):
 
             elif self.selectedIndex == 2:  # Continuous
                 print("Starting continuous transmission")
-                sdr = app.sdr
+                sdr = self.app.sdr
                 # filter cutoff, just set it to the same as sample rate
-                sdr.tx_rf_bandwidth = int(app.sampleRate)
-                sdr.tx_lo = int(app.center_freq)
+                sdr.tx_rf_bandwidth = int(self.app.sampleRate)
+                sdr.tx_lo = int(self.app.center_freq)
                 if self.gain > 0:
                     return -1
                 # Increase to increase tx power, valid range is -90 to 0 dB
                 sdr.tx_hardwaregain_chan0 = self.gain
                 N = 1000  # number of samples to transmit at once
-                t = np.arange(N)/app.sampleRate
+                t = np.arange(N)/self.app.sampleRate
                 samples = None
                 for row in self.frequencyTable:
                     if samples is None and row[0] is not None:
@@ -225,5 +216,5 @@ class TransmitWindow(QtWidgets.QWidget):
             print("Pluto not running!")
 
     def closeEvent(self, event):
-        app.close()
+        self.app.close()
         event.accept()

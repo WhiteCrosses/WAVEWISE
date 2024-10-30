@@ -1,29 +1,8 @@
-import pyqtgraph as pg
-
-import sys
-import adi
-
-import numpy as np
-from scipy.fft import fft
-# Krzywe transmisyjne
-
-from superqt import QLabeledRangeSlider, QLabeledSlider, QDoubleSlider
-
-import matplotlib.transforms as transforms
+from superqt import QLabeledRangeSlider, QLabeledSlider  # type: ignore
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.backends.backend_qtagg import FigureCanvas
-from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
 import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt, QEvent
-
-import time
-import threading
-import os
-import csv
-
-
-from scipy import signal
+from PyQt5.QtCore import Qt  # type: ignore
 
 
 class LossWindow(QtWidgets.QWidget):

@@ -1,28 +1,23 @@
-import pyqtgraph as pg
+import pyqtgraph as pg  # type: ignore
 
-import sys
-import adi
+import adi  # type: ignore
 
 import numpy as np
-from scipy.fft import fft
 # Krzywe transmisyjne
 
-from superqt import QLabeledRangeSlider, QLabeledSlider, QDoubleSlider
+from superqt import QLabeledRangeSlider, QDoubleSlider  # type: ignore
 
-import matplotlib.transforms as transforms
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent  # type: ignore
 
 import time
-import threading
 import os
 from peak import Peak
 import csv
-
 
 from scipy import signal
 
@@ -83,7 +78,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # self.setFixedHeight(900)
 
         self.peaks = []
-
+        self.plot = None
         self._wave_ax_ylim = [-120, 0]
         self._wave_ax_xlim = [70e6, 100e6]
 
@@ -96,6 +91,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.createWidgets()
         self.firstIteration()
+
+    def setPlot(self, plot):
+        self.plot = plot
 
     def firstIteration(self):
 
@@ -919,5 +917,5 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._timer.start()
 
     def closeEvent(self, event):
-        plot.close()
+        self.plot.close()
         event.accept()
