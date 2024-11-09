@@ -25,7 +25,6 @@ from scipy import signal
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-
         """
         
             Signal processing setting variables:
@@ -35,10 +34,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 selfDuration - int, seconds, time of collecting samples
         
         """
+        # sdr scan variables
         self.histMin = -100
         self.histMax = 0
-        self.isSubstracted = False
         self.selectedFreqRange = (70e6, 1000e6)
+        self.sampleRate = int(10e6)
+        self.center_freq = int(100e6)
+        self.bufferSize = 1024
+        self.startFreq = self.center_freq-(self.sampleRate/2)
+
+        self.isSubstracted = False
+
         self.recType = 0
         self.peakArray = []
         self.delay = 200
@@ -48,10 +54,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.press = None
         self.constantPart = 0
-        self.sampleRate = int(10e6)
-        self.center_freq = int(100e6)
-        self.bufferSize = 1024
-        self.startFreq = self.center_freq-(self.sampleRate/2)
+
         self.neededIterations = (
             self.selectedFreqRange[1]-self.selectedFreqRange[0])/self.sampleRate*2 + 1
         self.recMarkerValues = (0, 0)
@@ -71,13 +74,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.colorMeshMin = self.histMin
         self.colorMeshMax = self.histMax
 
+        self.peaks = []
+
+        # window variables
         self.bgColor = '#0b213b'
         self.setGeometry(0, 0, 1600, 900)
 
-        # self.setFixedWidth(1600)
-        # self.setFixedHeight(900)
-
-        self.peaks = []
+        # plot variables
         self.plot = None
         self._wave_ax_ylim = [-120, 0]
         self._wave_ax_xlim = [70e6, 100e6]
@@ -98,19 +101,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def firstIteration(self):
 
         self.x = np.arange(self.startFreq, self.bufferSize+self.startFreq)
-        self.signal = self.x * 0
-        # change to variables later
+        self.signal = np.zeros_like(self.x)  # self.x * 0
+
         self.imageArray = np.zeros((100, self.bufferSize))
         self.imageArray -= 100
 
         self._line = self._waterfall_ax.pcolorfast(np.reshape(
-            self.imageArray, (100, self.bufferSize)), vmin=self.colorMeshMin, vmax=self.colorMeshMax)
+            self.imageArray,
+            (100, self.bufferSize)),
+            vmin=self.colorMeshMin,
+            vmax=self.colorMeshMax)
+
         self._waterfall_ax.invert_yaxis()
         ticks = np.array([0, 1, 2, 3, 4])
-        _ticks = ticks/4*self.sampleRate+self.startFreq
 
         self.calculateWaterfallNodes()
-        # self._waterfall_ax.xaxis.set_major_locator(ticker.FixedLocator(_ticks))
 
         self._wave_ax.set_ylim(self._wave_ax_ylim)
         self.ocid = self._wave_ax.figure.canvas.mpl_connect(
@@ -148,8 +153,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def onScroll(self, event):
         increment = 1 if event.button == 'up' else -1
-        # self._wave_ax_ylim[0] = self._wave_ax_ylim[0] - increment * 10
-        # self._wave_ax_ylim[1] = self._wave_ax_ylim[1] + increment * 10
 
         self._wave_ax_xlim[0] = self._wave_ax_xlim[0] - increment * 1e6
         self._wave_ax_xlim[1] = self._wave_ax_xlim[1] + increment * 1e6
@@ -274,17 +277,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             else:
                 if self.neededIterations > 0:
                     print(f"{self.neededIterations}")
-                    # get data and append it to the array
                     self.getData()
 
                     dataarray = list(zip(self.freq, self.data))
                     dataarray = sorted(dataarray, key=lambda x: x[0])
                     self.freq, self.data = zip(*dataarray)
-                    # self.data = np.subtract(self.data, min(self.data)-self.desired_level)
 
                     self.readyData = np.concatenate(
                         (self.readyData, np.vstack((self.freq, self.data))), axis=1)
-                    # self.readyData.extend([self.freq, self.data])
 
                     self.center_freq += int(self.sampleRate)
                     self.sdr.rx_lo = self.center_freq
@@ -294,9 +294,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 else:
                     # data ready to show, show it :)
                     self._wave_ax.clear()
-                    # self._wave_ax.set_ylim(self._wave_ax_ylim)
-                   # self._wave_ax.set_xlim(self._wave_ax_xlim)
-
                     self._wave_ax.set_ylabel("dBm", color='white')
 
                     def millions(x, pos):
@@ -315,15 +312,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     self._wave_ax.set_xlim(
                         (min(self.readyData[0, :]), max(self.readyData[0, :])))
 
-                    # self.renderPeaks()
-
                     self._wave_ax.figure.canvas.draw()
 
-                    # for row in range(10):
-                    # self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(""))
-
-                    # for row in range(len(self.peakArray)):
-                    # self.pRapTable.setItem(row,0,QtWidgets.QTableWidgetItem(str(self.freq[self.peakArray[row].frequency])))
                     self.readyData = [[], []]
                     self.center_freq = int(
                         self.selectedFreqRange[0]+self.sampleRate/2)
@@ -334,7 +324,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         x, y = self.checkPeaks()
 
-        # Iterate through peaks to assign them new positions
         m = 0
         for i in x:
             found = False
@@ -369,7 +358,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.isPlutoRunning:
             self.signal = self.sdr.rx()
             self.processData2()
-            # self.getFrequencyArray()
 
     def dataFilter(self):
         kernel = np.ones(10)/10
@@ -384,7 +372,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.data = np.where(self.data > 0.00000000001, self.data, -10)
         self.data = 10 * np.log10(np.abs(self.data)**2)
 
-        thereshold = np.average(self.data)*0.9
+        thereshold = np.average(self.data)
         data_tmp = self.data
         for i in range(len(self.data)):
             if self.data[i] < thereshold:
@@ -403,22 +391,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # process pulled data from pluto
         # Fast Fourier transform
-        # self.data = fft(self.signal)
-        # self.signal = self.signal - np.mean(self.signal)
-
-        # self.data = np.abs(np.fft.fft(self.signal))**2 / (self.bufferSize*self.sampleRate)
         window = np.hamming(self.bufferSize)
         self.signal = self.signal * window
         ft = np.fft.fft(self.signal)
         self.data = np.roll(ft, int(self.bufferSize//2))
 
-        # print(type(self.data))
-        # self.data = (ft.real**2 + ft.imag**2)/ (self.bufferSize*self.sampleRate)
-
-        # Converting to logarythmic scale
-        # self.data = (20 * np.log10(self.data))
-        # self.data = 2/self.sampleRate*self.bufferSize*np.abs(self.data)
-        # print(self.data)
         # average out the sudden drops in power
         # If value is below 0.9 average it is set to average
         thereshold = np.average(self.data)*0.9
@@ -428,6 +405,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 data_tmp[i] = np.average(self.data)  # * 0.9
             else:
                 data_tmp[i] = self.data[i]
+
+        print(data_tmp)
 
         self.data = data_tmp
         # Smooth out noise

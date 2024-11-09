@@ -21,7 +21,7 @@ if __name__ == "__main__":
     app.show()
     plot.show()
 
-    # loss.show()
+    loss.show()
 
     app.activateWindow()
     app.raise_()
