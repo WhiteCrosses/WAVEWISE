@@ -16,7 +16,7 @@ if __name__ == "__main__":
     app = window.ApplicationWindow()
     plot = transmit_window.TransmitWindow(app)
     app.plot = plot
-    loss = loss_window.LossWindow()
+    loss = loss_window.LossWindow(plot, app)
 
     app.show()
     plot.show()

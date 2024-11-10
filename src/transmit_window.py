@@ -133,6 +133,29 @@ class TransmitWindow(QtWidgets.QWidget):
         # self.ax.plot(self.signal, '*-')
         # self.canvas.draw()
 
+    def singleReceive(self):
+        sdr = self.app.sdr
+        raw_data = sdr.rx()
+        sdr.rx_destroy_buffer()
+        return raw_data
+
+    def singleTransmit(self, range, step, gain):
+        sdr = self.app.sdr
+
+        # filter cutoff, just set it to the same as sample rate
+        sdr.tx_rf_bandwidth = int(self.app.sampleRate)
+        sdr.tx_lo = int(self.app.center_freq)
+        # Increase to increase tx power, valid range is -90 to 0 dB
+        sdr.tx_hardwaregain_chan0 = gain
+        N = 1000  # number of samples to transmit at once
+        t = np.arange(N)/self.app.sampleRate
+        samples = 0.5*np.exp(2.0j*np.pi*range*1e6*t)
+        sdr.tx(samples)
+
+        for x in range(0, 10):
+            raw_data = sdr.rx()
+        sdr.tx_destroy_buffer()
+
     def transmitCallback(self):
         if self.selectedIndex == 1 and not self.cyclicBreaker:
             print("Adding next recursion")
