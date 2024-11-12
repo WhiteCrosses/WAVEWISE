@@ -229,6 +229,7 @@ class LossWindow(QtWidgets.QWidget):
         sigOff = self.data_base[base_idx]
         sigOn = self.data_sig[base_idx]
 
+        print(f"idx: {base_idx}")
         print(f"selectedFreq: {selectedFreq}")
         print(f"f: {self.freqs_base[base_idx]}")
         print(f"off: {sigOff},on: {sigOn}")
@@ -285,6 +286,11 @@ class LossWindow(QtWidgets.QWidget):
         self.freqs_sig = self.freqs_sig + selectedFreq - 2e6
         self.freqs_base = self.freqs_base + selectedFreq - 2e6
 
+        x, y = signal.find_peaks(self.data_sig, height=-80, distance=200)
+
+        for i in range(0, len(x)):
+            print(self.freqs_sig[x[i]], self.data_sig[x[i]])
+
         base = self.find_nearest(self.freqs_base, selectedFreq)
 
         base_idx = np.where(self.freqs_base == base)[0][0]
@@ -292,6 +298,7 @@ class LossWindow(QtWidgets.QWidget):
         sigOff = self.data_base[base_idx]
         sigOn = self.data_sig[base_idx]
 
+        print(f"idx: {base_idx}")
         print(f"selectedFreq: {selectedFreq}")
         print(f"f: {self.freqs_base[base_idx]}")
         print(f"off: {sigOff},on: {sigOn}")
@@ -299,6 +306,9 @@ class LossWindow(QtWidgets.QWidget):
         print("=====================================")
         return sigOff, sigOn, self.data_base, self.data_sig, self.freqs_base
         # append to self.result value of freq selected
+
+    # TODO
+    # wait for received fft, check peak values
 
     def run(self):
         """!
@@ -318,10 +328,13 @@ class LossWindow(QtWidgets.QWidget):
         idx = 0
         self.result = np.array([])
 
+        # set click listener
+        self.figure.canvas.mpl_connect('button_press_event', self.onclick)
+
         for i in range(self.selectedRange[0], self.selectedRange[1], self.stepSelector.value()):
             sigOff, sigOn, fft_off, fft_on, freqs = self.transmit(
                 self.sdr, i, self.gainSelector.value(), t)
-            val = sigOn - sigOff - self.gainSelector.value()
+            val = sigOn
             self.result = np.append(self.result, val)
             displayed = np.convolve(self.result, window, 'same')
 
@@ -340,8 +353,12 @@ class LossWindow(QtWidgets.QWidget):
                 self.ax2.plot(freqs, fft_on)
                 self.ax2.plot(freqs, fft_off)
             self.canvas.draw()
-            for x in range(0, 10):
-                time.sleep(0.01)
+            for i in range(0, 10):
+                time.sleep(0.1)
+
+    def onclick(self, event):
+        if event.button == 'q':
+            quit()
 
     def rangeChangeSlider(self):
         """!
