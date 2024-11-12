@@ -12,40 +12,17 @@ from scipy import signal
 # TODO detecting sent signal works. it prints value of received signal. now iteration through range of frequencies and displaying them
 
 class LossWindow(QtWidgets.QWidget):
-    """!
-    @brief [Description de la classe]
 
-    ## Héritage : 
-        - Implémente QtWidgets.QWidget => [description]
-
-    """
-
-    def __init__(self, parent, main_window):
-        """!
-        @brief [Description de la fonction]
-
-        Paramètres : 
-            @param self => [description]
-            @param parent => [description]
-            @param main_window => [description]
-
-        """
+    def __init__(self, parent, main_window, qapp):
         super().__init__()
-
+        self.qapp = qapp
         self.parent = parent
-        self.result = None
+        self.result = np.empty(0)
         self.main_window = main_window
         self.currFreq = 0
         self.createWidgets()
 
     def createWidgets(self):
-        """!
-        @brief [Description de la fonction]
-
-        Paramètres : 
-            @param self => [description]
-
-        """
         self.mainLayout = QtWidgets.QFormLayout()
 
         self.rangeSelectorSlider = QLabeledRangeSlider(Qt.Horizontal)
@@ -118,55 +95,81 @@ class LossWindow(QtWidgets.QWidget):
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
-    def transmit(self):
+    def transmit(self, sdr, selectedFreq, gain, t):
         print("running")
 
-        sdr = self.parent.app.sdr
-        N = 1024
-        t = np.arange(N)/self.parent.app.sampleRate
-        self.samples = 0.5*np.exp(2.0j*np.pi*self.selectedRange[0]*1e6*t)
+        base_raw = sdr.rx()
+
+        self.freqs, self.data = signal.periodogram(
+            base_raw, self.parent.app.sampleRate)
+        self.data = np.where(self.data > 0.00000000001, self.data, -10)
+        self.data = 10 * np.log10(np.abs(self.data)**2)
+
+        self.freqs = self.freqs * 1e6 + 1e6
+
+        base = self.find_nearest(self.freqs, freq * 1e6)
+        base_start_idx = np.where(self.freqs == base - 1e6*(1/3))[0][0]
+        base_stop_idx = np.where(self.freqs == base + 1e6*(1/3))[0][0]
+
+        base_data = self.data[base_start_idx:base_stop_idx]
+        base_data = np.max(base_data)
+
+        self.samples = 0.5*np.exp(2.0j*np.pi*freq*1e6*t)
         self.samples = self.parent.normalize(self.samples)
         self.samples *= 2**14
 
-        print("transmiting!")
         sdr.tx_cyclic_buffer = True
         sdr.tx(self.samples)
         for x in range(0, 10):
             raw_data = sdr.rx()
-        print("transmited!")
         self.signal = sdr.rx()
         sdr.tx_destroy_buffer()
 
-        self.freq, self.data = signal.periodogram(
+        self.freqs, self.data = signal.periodogram(
             self.signal, self.parent.app.sampleRate)
         self.data = np.where(self.data > 0.00000000001, self.data, -10)
         self.data = 10 * np.log10(np.abs(self.data)**2)
 
-        self.freq = self.freq + self.selectedRange[0] * 1e6 + 1e6
+        self.freqs = self.freqs + freq * 1e6 + 1e6
 
         peaks = signal.find_peaks(self.data, height=-40)
 
-        # convert value from 0 to 1000 to range of scan
+        transmitted = self.find_nearest(self.freqs, freq * 1e6)
+        transmitted_idx = np.where(self.freqs == transmitted)
+        transmitted_data = self.data[transmitted_idx]
 
-        print(peaks[0])
-
-        self.figure.clear()
-        self.ax = self.figure.add_subplot(111)
-        self.ax.plot(self.freq, self.data)
-
-        for i in range(len(peaks[0])):
-            self.ax.plot(self.freq[peaks[0][i]], self.data[peaks[0][i]], 'ro')
-
-        self.canvas.draw()
-
-        fndfreq = self.find_nearest(peaks[0], self.selectedRange[0] * 1e6)
-        print(self.data[fndfreq])
+        print(f"base: {base_data},found: {transmitted_data}")
+        print(f"loss: {transmitted_data - base_data}")
+        print("=====================================")
+        return base_data, transmitted_data
         # append to self.result value of freq selected
 
     def run(self):
         self.currFreq = self.selectedRange[0]
 
-        self.transmit()
+        sdr = self.parent.app.sdr
+        N = 1024
+        t = np.arange(N)/self.parent.app.sampleRate
+
+        freq_array = np.arange(
+            self.selectedRange[0]*1e6, self.selectedRange[1]*1e6, self.stepSelector.value()*1e6)
+
+        self.result = np.empty_like(freq_array)
+        idx = 0
+
+        for i in range(self.selectedRange[0], self.selectedRange[1], self.stepSelector.value()):
+            base, val = self.transmit(
+                sdr, i, self.gainSelector.value(), t)
+            val = val - base
+            print(val, base)
+            self.result[idx] = val
+            idx += 1
+            self.figure.clear()
+            self.ax = self.figure.add_subplot(111)
+            self.ax.plot(freq_array, self.result)
+            self.canvas.draw()
+            # check if canvas completed drawing
+            time.sleep(0.1)
 
     def rangeChangeSlider(self):
         self.startFreqBox.setValue(self.rangeSelectorSlider.value()[0])
