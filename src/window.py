@@ -25,16 +25,7 @@ from scipy import signal
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        """
         
-            Signal processing setting variables:
-                freqRange - int, Hz
-                startFreq - int, Hz
-                sampleRate - int, no. samples per second
-                selfDuration - int, seconds, time of collecting samples
-        
-        """
-        # sdr scan variables
         self.histMin = -100
         self.histMax = 0
         self.selectedFreqRange = (70e6, 1000e6)
@@ -85,8 +76,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._wave_ax_ylim = [-120, 0]
         self._wave_ax_xlim = [70e6, 100e6]
 
-        # self.setStyleSheet("background-color: #0b213b;")
-
         self.peakFinderInit()
         self.mainWidgetsInit()
 
@@ -94,9 +83,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.createWidgets()
         self.firstIteration()
-
-    def setPlot(self, plot):
-        self.plot = plot
 
     def firstIteration(self):
 
@@ -184,13 +170,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def plutoInit(self):
         self.sdr = adi.Pluto("ip:192.168.2.1")
         self.sdr.sample_rate = self.sampleRate
-        # filter cutoff, just set it to the same as sample rate
         self.sdr.rx_rf_bandwidth = self.sampleRate
         self.sdr.rx_lo = self.center_freq
         self.sdr.gain_control_mode_chan0 = "manual"  # turn off AGC
-        gain = 50.0  # allowable range is 0 to 74.5 dB
-        self.sdr.rx_hardwaregain_chan0 = gain  # set receive gain
-        # this is the buffer the Pluto uses to buffer samples
+        gain = 50.0
+
+        self.sdr.rx_hardwaregain_chan0 = gain
         self.sdr.rx_buffer_size = self.bufferSize
         self.sdr.rx_rf_bandwidth = int(self.sampleRate)
 

@@ -11,7 +11,28 @@ from scipy import signal
 from scipy.fft import fftshift, fftfreq
 from scipy import fft
 import adi  # type: ignore
-import csv
+
+# TODO detecting sent signal works. it prints value of received signal. now iteration through range of frequencies and displaying them
+
+class NoSDR:
+    def __init__(self):
+        self.sig = False
+        self.rx_data = np.zeros_like(np.shape(5000))
+
+    def rx(self):
+        if self.sig:
+            return self.rx_data
+        else:
+            return np.zeros_like(self.rx_data)
+
+
+    def tx(self, signal):
+        self.sig = True
+        self.rx_data = signal
+
+    def tx_destroy_buffer(self):
+        self.sig = False
+
 
 class LossWindow(QtWidgets.QWidget):
     def __init__(self, app):
@@ -30,7 +51,7 @@ class LossWindow(QtWidgets.QWidget):
 
     def plutoInit(self):
         gain = 50.0  # allowable range is 0 to 74.5 dB
-        self.sdr = adi.Pluto("ip:192.168.2.1")
+        self.sdr = NoSDR()
 
         self.sdr.sample_rate = self.sampleRate
         
@@ -180,7 +201,14 @@ class LossWindow(QtWidgets.QWidget):
         print("idx: " + str(nearest_idx))
         print("idx2: "+ str(nearest_peak_freq_idx))
 
+        #ret_on = 20*np.log10((np.abs(np.average(sigOn)/self.n_samples)*2.0))
+        #ret_off = 20*np.log10((np.abs(np.average(sigOff)/self.n_samples)*2.0))
+
         return sigOn, sigOff, loss, on_fft_db, off_fft_db
+        # append to self.result value of freq selected
+
+    # TODO
+    # wait for received fft, check peak values
 
     def run(self):
         self.currFreq = self.selectedRange[0]
@@ -199,50 +227,49 @@ class LossWindow(QtWidgets.QWidget):
 
         # set click listener
         self.figure.canvas.mpl_connect('button_press_event', self.onclick)
-        with open("measurements_d2_2k44_2k48v2.txt", 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["i", "sigOn", "sigOff"])
-            for i in range():
-                self.center_freq = int(i - 1e6)
-                sigOn, sigOff, loss, on_fft_db, off_fft_db = self.transmit(i/1e6, self.gainSelector.value())
 
-                writer.writerow([i, sigOn, sigOff])
+        for i in range(self.selectedRange[0], self.selectedRange[1], self.stepSelector.value()):
+            self.center_freq = int(i*1e6 - 1e6)
+            sigOn, sigOff, loss, on_fft_db, off_fft_db = self.transmit(i, self.gainSelector.value())
 
-                self.result = np.append(self.result, loss)
-                self.result2 = np.append(self.result2, sigOn)
-                self.result3 = np.append(self.result3, sigOff)
+            self.result = np.append(self.result, loss)
+            self.result2 = np.append(self.result2, sigOn)
+            self.result3 = np.append(self.result3, sigOff)
+
+            #displayed = np.convolve(self.result, window, mode='same')
+            #displayed2 = np.convolve(self.result2, window, mode='same')
+            #displayed3 = np.convolve(self.result3, window, mode='same')
+
+            displayed = self.result#np.convolve(self.result, window, mode='same')
+            displayed2 = self.result2#np.convolve(self.result2, window, mode='same')
+            displayed3 = self.result3#np.convolve(self.result3, window, mode='same')
+
+            idx += 1
+            
+
+            if (idx > 10):
+                self.figure.clear()
+                self.ax = self.figure.add_subplot(311)
+                self.ax2 = self.figure.add_subplot(312)
+                self.ax3 = self.figure.add_subplot(313)
+
+                self.ax.plot(freq_array[0:idx], displayed, 'r')
+                self.ax.plot(freq_array[0:idx], displayed2, 'g')
+                self.ax.plot(freq_array[0:idx], displayed3, 'b')
 
 
-                displayed = self.result#np.convolve(self.result, window, mode='same')
-                displayed2 = self.result2#np.convolve(self.result2, window, mode='same')
-                displayed3 = self.result3#np.convolve(self.result3, window, mode='same')
+                self.ax2.plot(off_fft_db)
+                self.ax3.plot(on_fft_db)
 
-                idx += 1
-                
+                def fmt(x, pos): return '{:.0f}'.format((x)/1e6, pos)
+                self.ax.xaxis.set_major_formatter(
+                    ticker.FuncFormatter(fmt))
 
-                if (idx > 10):
-                    self.figure.clear()
-                    self.ax = self.figure.add_subplot(311)
-                    self.ax2 = self.figure.add_subplot(312)
-                    self.ax3 = self.figure.add_subplot(313)
+                self.ax.set_xlim(
+                    ((self.selectedRange[0] - 5)*1e6, (self.selectedRange[1] + 5)*1e6))
 
-                    self.ax.plot(freq_array[0:idx], displayed, 'r')
-                    self.ax.plot(freq_array[0:idx], displayed2, 'g')
-                    self.ax.plot(freq_array[0:idx], displayed3, 'b')
-
-
-                    self.ax2.plot(off_fft_db)
-                    self.ax3.plot(on_fft_db)
-
-                    def fmt(x, pos): return '{:.0f}'.format((x)/1e6, pos)
-                    self.ax.xaxis.set_major_formatter(
-                        ticker.FuncFormatter(fmt))
-
-                    self.ax.set_xlim(
-                        ((self.selectedRange[0] - 5)*1e6, (self.selectedRange[1] + 5)*1e6))
-
-                    self.canvas.draw()
-                    self.canvas.flush_events()
+                self.canvas.draw()
+                self.canvas.flush_events()
 
     def onclick(self, event):
         if event.button == 'q':

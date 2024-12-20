@@ -22,7 +22,21 @@ class TransmitWindow(QtWidgets.QWidget):
         self.mainLayout = QtWidgets.QVBoxLayout()
         self.done = True
         self.cyclicBreaker = False
+
+        self.image_iterator = 0
+        self.isArtEnabled = False
+
         self.transmitDelay = 2
+
+
+        if self.isArtEnabled:
+            self.transmitDelay = 0.8
+        else:
+            self.transmitDelay = 2
+
+        
+
+
         self._initPlotWidget()
         self._initFrequencyAddingWidget()
 
@@ -165,12 +179,10 @@ class TransmitWindow(QtWidgets.QWidget):
         print("entered callback")
         sdr = self.app.sdr
 
-        # filter cutoff, just set it to the same as sample rate
         sdr.tx_rf_bandwidth = int(self.app.sampleRate)
         sdr.tx_lo = int(self.app.center_freq)
         if self.gain > 0:
             return -1
-        # Increase to increase tx power, valid range is -90 to 0 dB
         sdr.tx_hardwaregain_chan0 = self.gain
         N = 1000  # number of samples to transmit at once
         t = np.arange(N)/self.app.sampleRate
@@ -179,8 +191,9 @@ class TransmitWindow(QtWidgets.QWidget):
             if samples is None and row[0] is not None:
                 samples = 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t)
             elif row[0] is not None:
-                # Simulate a sinusoid of 100 kHz, so it should show up at 915.1 MHz at the receiver
                 samples += 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t)
+
+                    
         samples = self.normalize(samples)
 
         samples *= 2**14  # The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
@@ -192,6 +205,20 @@ class TransmitWindow(QtWidgets.QWidget):
         for x in range(0, 10):
             raw_data = sdr.rx()
         sdr.tx_destroy_buffer()
+
+    def getTxSamples(self, frequencies, sampleRate):
+        N = 1000
+        t = np.arange(N)/sampleRate
+        samples = None
+        for row in frequencies:
+            if samples is None and row[0] is not None:
+                samples = 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t)
+            elif row[0] is not None:
+                samples += 0.5*np.exp(2.0j*np.pi*row[0]*1e6*t)
+        samples = self.normalize(samples)
+        samples *= 2**14
+        return samples
+
 
     def transmit(self):
         if self.app.isPlutoRunning:
